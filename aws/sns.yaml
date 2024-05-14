@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Resources:
+  MySNSTopic:
+    Type: AWS::SNS::Topic
+
+  MyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt MyLambdaRole.Arn
+      FunctionName: MyLambdaFunction
+      Runtime: nodejs14.x
+      Timeout: 30
+      Code:
+        S3Bucket: my-lambda-code-bucket
+        S3Key: lambda.zip
+
+  MyLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaSNSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Subscribe
+                  - sns:ListSubscriptionsByTopic
+                Resource: !Ref MySNSTopic
+
+  MySubscriptionResource:
+    Type: Custom::SNSubscription
+    Properties:
+      ServiceToken: !GetAtt MyLambdaFunction.Arn
+      TopicArn: !Ref MySNSTopic
+      Endpoints:
+        - user1@example.com
+        - user2@example.com
+        - user3@example.com
+
+Outputs:
+  SNSubscriptionResourceArn:
+    Value: !Ref MySubscriptionResource
+
+
+
+

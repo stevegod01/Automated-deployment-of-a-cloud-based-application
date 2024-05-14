@@ -1,0 +1,25 @@
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Stage
+      - Prod
+Mappings:
+  Settings:
+    DomainName:
+      Dev: dev-links-air.persuadeapis.com
+      Prod: prod-links-air.persuadeapis.com
+Resources:
+  LbCert:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties: 
+      DomainName: !FindInMap [Settings, DomainName, !Ref EnvironmentName]
+      ValidationMethod: DNS
+
+Outputs:
+  LbCert:
+    Value: !Ref LbCert
+    Export:
+      Name: !Sub "${AWS::StackName}-LbCert"

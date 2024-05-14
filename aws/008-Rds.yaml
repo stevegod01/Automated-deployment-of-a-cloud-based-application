@@ -1,0 +1,73 @@
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Stage
+      - Prod
+  ServiceNameDashy:
+    Type: String
+    Default: links-air
+Mappings:
+  Settings:
+    EnvironmentNameLower:
+      Dev: dev
+      Stage: stage
+      Prod: prod
+    MultiAZ:
+      Dev: false
+      Prod: true
+Resources:
+  ECSDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Join ['-', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], !Ref ServiceNameDashy]]
+      Engine: postgres
+      EngineVersion: "15.3"
+      MasterUsername: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], 'admin']]
+      # MasterUserPassword: !Ref DBPassword
+      ManageMasterUserPassword: true
+      DBInstanceClass: db.t4g.micro
+      BackupRetentionPeriod: 35
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+      DBSubnetGroupName: !Ref PrivateSubnetGroup
+      AllocatedStorage: 50
+      MaxAllocatedStorage: 150
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      MultiAZ: !FindInMap [Settings, MultiAZ, !Ref EnvironmentName]
+      AutoMinorVersionUpgrade: true
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: For SQL Ingress
+      VpcId: 
+        Fn::ImportValue: !Sub ${EnvironmentName}Vpc-Vpc
+      # SecurityGroupIngress:
+      #   - IpProtocol: tcp
+      #     FromPort: 443
+      #     ToPort: 443
+      #     CidrIp: 0.0.0.0/0
+      # SecurityGroupEgress:
+      #   - IpProtocol: tcp
+      #     FromPort: 8080
+      #     ToPort: 8080
+      #     CidrIp: 0.0.0.0/0
+ 
+  PrivateSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "Subnets for sebra prod DB"
+      SubnetIds: 
+        - Fn::ImportValue: !Sub ${EnvironmentName}Vpc-PrivateSubnetA
+        - Fn::ImportValue: !Sub ${EnvironmentName}Vpc-PrivateSubnetB
+        - Fn::ImportValue: !Sub ${EnvironmentName}Vpc-PrivateSubnetC
+
+Outputs:
+  LbSecurityGroup:
+    Value: !Ref RdsSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-RdsSecurityGroup"

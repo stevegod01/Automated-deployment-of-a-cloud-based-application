@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an SNS topic, SQS queue, and subscription between them.'
+
+Parameters:
+  TopicName:
+    Type: String
+    Description: 'The name of the SNS topic.'
+  QueueName:
+    Type: String
+    Description: 'The name of the SQS queue.'
+
+Resources:
+  # SNS Topic
+  DevlinksAirlineSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Ref TopicName
+      TopicName: !Ref TopicName
+
+  # SQS Queue
+  DevlinksAirlineSQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+      VisibilityTimeout: 120  # Visibility timeout in seconds (2 minutes)
+      ReceiveMessageWaitTimeSeconds: 0
+
+  # SNS Subscription to SQS Queue
+  DevlinksAirSQSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt DevlinksAirlineSQSQueue.Arn
+      Protocol: sqs
+      RawMessageDelivery: true
+      TopicArn: !Ref DevlinksAirlineSNSTopic

@@ -1,0 +1,95 @@
+{
+    "family": "prod-links-air",
+    "containerDefinitions": [
+        {
+            "name": "api",
+            "image": "947210666476.dkr.ecr.us-east-1.amazonaws.com/links-hospitality-prod:0ab66e3430c0306b4d5a0af0a248070497c74a6c",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "name": "api-8080-tcp",
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "links.id",
+                    "value": ""
+                },
+                {
+                    "name": "crm.id",
+                    "value": ""
+                },
+                {
+                    "name": "DB_USERNAME",
+                    "value": "links"
+                },
+                {
+                    "name": "links.host",
+                    "value": ""
+                },
+                {
+                    "name": "queueURL",
+                    "value": ""
+                },
+                {
+                    "name": "DB_NAME",
+                    "value": "postgres"
+                },
+                {
+                    "name": "crm.host",
+                    "value": ""
+                },
+                {
+                    "name": "topicARN",
+                    "value": "arn:aws:sns:us-east-1:252860166803:prod-links-airline-topic"
+                },
+                {
+                    "name": "DB_HOSTNAME",
+                    "value": "links-hospitality-prod-db.cdnzww4q3srp.us-east-1.rds.amazonaws.com"
+                }
+            ],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [
+                {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:947210666476:secret:prod-links-hospitality-prod-saovpq:DB_PASSWORD::"
+                },
+                {
+                    "name": "crm.password",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:252860166803:secret:prod-links-air-8JBR4L:crm.password::"
+                },
+                {
+                    "name": "links.password",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:252860166803:secret:prod-links-air-8JBR4L:links.password::"
+                }
+            ],
+            "privileged": false,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/prod-links-air",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "prod-links-air"
+                }
+            }
+        }
+    ],
+    "taskRoleArn": "arn:aws:iam::252860166803:role/ProdEcsIam-TaskRole-dUHYD4U7nqmc",
+    "executionRoleArn": "arn:aws:iam::252860166803:role/ProdEcsIam-ExecRole-L4cS3GfF7b9A",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "2048",
+    "memory": "4096",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    }
+}

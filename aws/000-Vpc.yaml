@@ -1,0 +1,219 @@
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Stage
+      - Prod
+Mappings:
+  Settings:
+    EnvironmentNameLower:
+      Dev: dev
+      Stage: stage
+      Prod: prod
+    Cidr:
+      Dev: 10.50.0.0/16
+      Stage: 10.51.0.0/16
+      Prod: 10.52.0.0/16
+    SubnetCidrPrefix:
+      Dev: "10.50."
+      Stage: "10.51."
+      Prod: "10.52."
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [Settings, Cidr, !Ref EnvironmentName]
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-vpc']]
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-1a"
+      CidrBlock: !Join ['', [!FindInMap [Settings, SubnetCidrPrefix, !Ref EnvironmentName], '0.0/24']]
+      MapPublicIpOnLaunch: True
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-public-a']]
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-1b"
+      CidrBlock: !Join ['', [!FindInMap [Settings, SubnetCidrPrefix, !Ref EnvironmentName], '1.0/24']]
+      MapPublicIpOnLaunch: True
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-public-b']]
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-1c"
+      CidrBlock: !Join ['', [!FindInMap [Settings, SubnetCidrPrefix, !Ref EnvironmentName], '2.0/24']]
+      MapPublicIpOnLaunch: True
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-public-c']]
+
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-1a"
+      CidrBlock: !Join ['', [!FindInMap [Settings, SubnetCidrPrefix, !Ref EnvironmentName], '3.0/24']]
+      MapPublicIpOnLaunch: False
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-private-a']]
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-1b"
+      CidrBlock: !Join ['', [!FindInMap [Settings, SubnetCidrPrefix, !Ref EnvironmentName], '4.0/24']]
+      MapPublicIpOnLaunch: False
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-private-b']]
+  PrivateSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: "us-east-1c"
+      CidrBlock: !Join ['', [!FindInMap [Settings, SubnetCidrPrefix, !Ref EnvironmentName], '5.0/24']]
+      MapPublicIpOnLaunch: False
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-private-c']]
+
+# TODO: Prod needs one NAT per private AZ
+
+  Nat:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatStaticIp.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-nat']]
+  NatStaticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-nat']]
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-private']]
+  PrivateNatRoute:
+    DependsOn: Nat
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref Nat
+
+  Igw:
+    Type: AWS::EC2::InternetGateway
+  IgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref Igw
+      VpcId: !Ref Vpc
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-public']]
+  PublicRoute:
+    DependsOn: Igw
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref Igw
+
+
+  PublicA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+  PublicB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetB
+  PublicC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetC
+
+
+  PrivateA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetA
+  PrivateB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetB
+  PrivateC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetC
+
+
+
+Outputs:
+  PublicSubnetA:
+    Value: !Ref PublicSubnetA
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetA"
+  PublicSubnetB:
+    Value: !Ref PublicSubnetB
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetB"
+  PublicSubnetC:
+    Value: !Ref PublicSubnetC
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetC"
+
+  PrivateSubnetA:
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetA"
+  PrivateSubnetB:
+    Value: !Ref PrivateSubnetB
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetB"
+  PrivateSubnetC:
+    Value: !Ref PrivateSubnetC
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetC"
+
+  Vpc:
+    Value: !Ref Vpc
+    Export:
+      Name: !Sub "${AWS::StackName}-Vpc"

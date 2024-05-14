@@ -1,0 +1,137 @@
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Stage
+      - Prod
+  ServiceNameDashy:
+    Type: String
+    Default: links-air
+Mappings:
+  Settings:
+    EnvironmentNameLower:
+      Dev: dev
+      Stage: stage
+      Prod: prod
+    LogRetention:
+      Dev: 30
+      Stage: 30
+      Prod: 3653
+    DesiredCount:
+    # Set to 0 when building until we can deploy the first container
+      Dev: 0
+      Prod: 0
+    TaskDefinition:
+      Dev: arn:aws:ecs:us-east-1:252860166803:task-definition/dev-links-air
+Resources:
+  ECSServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ECSServiceRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECSServicePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:CreateService
+                  - ecs:UpdateService
+                  - ecs:DescribeServices
+                  - ecs:ListServices
+                  - ecs:DescribeTaskDefinition
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeListeners
+                Resource: "*"
+                
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Load Balancer In
+      VpcId: 
+        Fn::ImportValue: !Sub ${EnvironmentName}Vpc-Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: 
+            Fn::ImportValue: !Sub ${EnvironmentName}EcsLoadBalancer-LbSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  ContainerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Join ['', ['/ecs/', !FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-', !Ref ServiceNameDashy]]
+      RetentionInDays: !FindInMap [Settings, LogRetention, !Ref EnvironmentName]
+    
+
+  DbWhitelistIn:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties: 
+      Description: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-', !Ref ServiceNameDashy]]
+      FromPort: 5432
+      ToPort: 5432
+      GroupId: 
+        Fn::ImportValue: !Sub ${EnvironmentName}Rds-RdsSecurityGroup
+      IpProtocol: tcp
+      SourceSecurityGroupId: !Ref EcsSecurityGroup
+  DbWhitelistOut1:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties: 
+      Description: !Join ['', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], '-', !Ref ServiceNameDashy]]
+      FromPort: 5432
+      ToPort: 5432
+      GroupId: 
+        Fn::ImportValue: !Sub ${EnvironmentName}Rds-RdsSecurityGroup
+      IpProtocol: tcp
+      DestinationSecurityGroupId: !Ref EcsSecurityGroup
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ContainerLogs
+    Properties: 
+      Cluster:
+        Fn::ImportValue: !Sub ${EnvironmentName}EcsCluster-EcsCluster
+      DeploymentConfiguration: 
+        DeploymentCircuitBreaker: 
+          Enable: True
+          Rollback: True
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: !FindInMap [Settings, DesiredCount, !Ref EnvironmentName]
+      HealthCheckGracePeriodSeconds: 300
+      LaunchType: FARGATE
+      LoadBalancers:
+        - TargetGroupArn:
+            Fn::ImportValue: !Sub ${EnvironmentName}EcsLoadBalancer-TargetGroup
+          ContainerName: api
+          ContainerPort: 8080
+      NetworkConfiguration: 
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups: 
+            - !Ref EcsSecurityGroup
+          Subnets: 
+            - Fn::ImportValue: !Sub ${EnvironmentName}Vpc-PrivateSubnetA
+            - Fn::ImportValue: !Sub ${EnvironmentName}Vpc-PrivateSubnetB
+            - Fn::ImportValue: !Sub ${EnvironmentName}Vpc-PrivateSubnetC
+      ServiceName: !Join ['-', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], !Ref ServiceNameDashy]]
+      TaskDefinition: !FindInMap [Settings, TaskDefinition, !Ref EnvironmentName] # Specify no revision to use latest active.
+      # Role: !GetAtt ECSServiceRole.Arn

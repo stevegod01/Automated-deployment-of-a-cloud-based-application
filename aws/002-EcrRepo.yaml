@@ -1,0 +1,26 @@
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Stage
+      - Prod
+  ServiceNameDashy:
+    Type: String
+    Default: links-air
+Mappings:
+  Settings:
+    EnvironmentNameLower:
+      Dev: dev
+      Stage: stage
+      Prod: prod
+Resources:
+  Repo:
+    Type: AWS::ECR::Repository
+    Properties: 
+      EncryptionConfiguration: 
+        EncryptionType: AES256
+      ImageTagMutability: IMMUTABLE
+      RepositoryName: !Join ['-', [!FindInMap [Settings, EnvironmentNameLower, !Ref EnvironmentName], !Ref ServiceNameDashy]]

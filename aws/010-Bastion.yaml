@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: Dev
+    AllowedValues:
+      - Dev
+      - Stage
+      - Prod
+
+  InstanceType:
+    Type: String
+    Default: "t3.nano"
+
+  AMIId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+
+  KeyPairName:
+    Type: String
+    Default: "dev-links-air-bastion"
+
+  AllowedCidrBlock:
+    Type: String
+    Default: "18.224.162.81/32"
+
+  # RDSSecurityGroupId:
+  #   Type: String
+  #   Default: "sg-0a2da0e7c085587fb"
+
+Resources:
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Bastion Host Security Group"
+      VpcId:
+       Fn::ImportValue: !Sub ${EnvironmentName}Vpc-Vpc  # Import VPC ID916-rake-roast
+       
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedCidrBlock
+
+  BastionInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AMIId
+      KeyName: !Ref KeyPairName
+      SubnetId:
+        Fn::ImportValue: !Sub "DevVpc-PublicSubnetA" # Import public subnet
+      SecurityGroupIds:
+        - !GetAtt BastionSecurityGroup.GroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: 10
+            Encrypted: true
+            KmsKeyId: 'arn:aws:kms:us-east-1:252860166803:key/b2f86fbe-1876-48ba-843c-05027c23477b'
+
+  RDSAccessSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Bastion
+      GroupId:
+        Fn::ImportValue: !Sub ${EnvironmentName}Rds-RdsSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432  
+      ToPort: 5432
+      SourceSecurityGroupId: !GetAtt BastionSecurityGroup.GroupId
+  RDSAccessSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties: 
+      Description: Bastion
+      FromPort: 5432
+      ToPort: 5432
+      GroupId: 
+        Fn::ImportValue: !Sub ${EnvironmentName}Rds-RdsSecurityGroup
+      IpProtocol: tcp
+      DestinationSecurityGroupId: !GetAtt BastionSecurityGroup.GroupId
+
+  EIPAssociation:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref BastionInstance
+
+Outputs:
+  BastionInstanceIP:
+    Description: "Public IP address of the Bastion Instance"
+    Value: !GetAtt BastionInstance.PublicIp

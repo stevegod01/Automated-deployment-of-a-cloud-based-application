@@ -1,0 +1,63 @@
+Resources:
+  SabreRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRoleWithWebIdentity
+            Principal:
+              Federated: !Ref GithubOidc
+            Condition:
+              StringLike:
+                # https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html AWS Recommends the following
+                token.actions.githubusercontent.com:sub: repo:letspersuade/sabre-airlines:*
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+      Policies:
+        # See https://github.com/aws-actions/amazon-ecs-deploy-task-definition for the permissions needed
+        - PolicyName: ECR
+          PolicyDocument: |
+           {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "ecs:RegisterTaskDefinition",
+                            "ecr:GetAuthorizationToken"
+                        ],
+                        "Resource": "*"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "iam:PassRole",
+                            "ecr:GetDownloadUrlForLayer",
+                            "ecr:BatchGetImage",
+                            "ecr:CompleteLayerUpload",
+                            "ecs:DescribeServices",
+                            "ecr:UploadLayerPart",
+                            "ecr:InitiateLayerUpload",
+                            "ecr:BatchCheckLayerAvailability",
+                            "ecr:PutImage",
+                            "ecs:UpdateService"
+                        ],
+                        "Resource": [
+                            "arn:aws:ecr.ap-southeast-1:252860166803:repository/prod-sabre-air",
+                            "arn:aws:ecs:us-east-1:252860166803:service/prod-sabre-air/prod-sabre-air",
+                            "arn:aws:iam::252860166803:role/ProdEcsIam-TaskRole-DDP3Mxk36XIM",
+                            "arn:aws:iam::252860166803:role/ProdEcsIam-ExecRole-Qjy3ULlUXhui"
+                        ]
+                    }
+                ]
+            }
+
+  GithubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: 
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd

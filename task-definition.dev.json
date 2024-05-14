@@ -1,0 +1,104 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "api",
+            "portMappings": [
+                {
+                    "name": "api-8080-tcp",
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "DB_HOSTNAME",
+                    "value": "dev-links-air.crw0260oqld4.us-east-1.rds.amazonaws.com"
+                },
+                {
+                    "name": "DB_NAME",
+                    "value": "postgres"
+                },
+                {
+                    "name": "DB_USERNAME",
+                    "value": "links"
+                },
+                {
+                    "name": "crm.host",
+                    "value": ""
+                },
+                {
+                    "name": "crm.id",
+                    "value": ""
+                },
+                {
+                    "name": "topicARN",
+                    "value": "arn:aws:sns:us-east-1:252860166803:dev-links-airline-topic"
+                },
+                {
+                    "name": "queueURL",
+                    "value": "https://sqs.us-east-1.amazonaws.com/252860166803/dev-links-airline-queue"
+                },
+                {
+                    "name": "links.host",
+                    "value": ""
+                },
+                {
+                    "name": "links.id",
+                    "value": ""
+                }
+                {
+                    "name": "QUEUE_NAME",
+                    "value": "dev-links-airline-queue"
+                }
+            ],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "secrets": [
+                {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:252860166803:secret:dev-links-air-0inQyR:DB_PASSWORD::"
+                },
+                {
+                    "name": "crm.password",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:252860166803:secret:dev-links-air-0inQyR:crm.password::"
+                },
+                {
+                    "name": "links.password",
+                    "valueFrom": "arn:aws:secretsmanager:us-east-1:252860166803:secret:dev-links-air-0inQyR:links.password::"
+                }
+            ],
+            "privileged": false,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/dev-links-air",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "dev-links-air"
+                },
+                "secretOptions": []
+            }
+        }
+    ],
+    "family": "dev-links-air",
+    "taskRoleArn": "arn:aws:iam::252860166803:role/DevEcsIam-TaskRole-YhG951WP0rxJ",
+    "executionRoleArn": "arn:aws:iam::252860166803:role/DevEcsIam-ExecRole-79wwIAvM9pfe",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "2048",
+    "memory": "4096",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    }
+}
