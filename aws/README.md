@@ -1,3 +1,7 @@
+# Historical environment notes
+
+These original notes describe a specific organization's environment and manual deployment sequence. They are preserved for context and attribution, not verified as current instructions. Start with the [repository scope and limitations](../README.md) before adapting any templates or running deployment commands.
+
 ## Setup
 Follow https://persuadeloyalty.atlassian.net/wiki/spaces/PRSD/pages/3209953281/AWS+CLI+Access+for+Loyalty to set up your profile.
 
